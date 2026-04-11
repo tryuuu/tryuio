@@ -146,8 +146,11 @@ func (h *ObjectHandler) handleList(w http.ResponseWriter, r *http.Request) {
 // authorized は Authorization: Bearer <key> ヘッダーを検証する。
 // Bearer スキームは HTTP 仕様に従い大文字小文字を問わない。
 func (h *ObjectHandler) authorized(r *http.Request) bool {
-	token, ok := strings.CutPrefix(strings.ToLower(r.Header.Get("Authorization")), "bearer ")
-	return ok && token == h.apiKey
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+		return false
+	}
+	return authHeader[len("bearer "):] == h.apiKey
 }
 
 // parsePath は /<bucket>/<key> 形式のパスを分割する。
