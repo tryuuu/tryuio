@@ -1,25 +1,42 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/tryuuu/tryuio/internal/domain"
 	"github.com/tryuuu/tryuio/internal/infrastructure"
+	"github.com/tryuuu/tryuio/internal/replication"
 	"github.com/tryuuu/tryuio/internal/usecase"
 )
 
 type ObjectHandler struct {
-	usecase *usecase.ObjectUsecase
-	apiKey  string
+	usecase    *usecase.ObjectUsecase
+	apiKey     string
+	replicator *replication.Replicator // nil のときはレプリケーションなし
 }
 
-func NewObjectHandler(uc *usecase.ObjectUsecase, apiKey string) *ObjectHandler {
-	return &ObjectHandler{usecase: uc, apiKey: apiKey}
+func NewObjectHandler(uc *usecase.ObjectUsecase, apiKey string, replicator *replication.Replicator) *ObjectHandler {
+	return &ObjectHandler{usecase: uc, apiKey: apiKey, replicator: replicator}
 }
 
 func (h *ObjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/health":
+		w.WriteHeader(http.StatusOK)
+		return
+	case "/list":
+		if !h.authorized(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		h.handleList(w, r)
+		return
+	}
+
 	bucket, key, ok := parsePath(r.URL.Path)
 	if !ok {
 		http.Error(w, "invalid path: expected /<bucket>/<key>", http.StatusBadRequest)
@@ -46,13 +63,6 @@ func (h *ObjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// authorized は Authorization: Bearer <key> ヘッダーを検証する。
-// Bearer スキームは HTTP 仕様に従い大文字小文字を問わない。
-func (h *ObjectHandler) authorized(r *http.Request) bool {
-	token, ok := strings.CutPrefix(strings.ToLower(r.Header.Get("Authorization")), "bearer ")
-	return ok && token == h.apiKey
-}
-
 func (h *ObjectHandler) handlePut(w http.ResponseWriter, r *http.Request, bucket, key string) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -67,6 +77,15 @@ func (h *ObjectHandler) handlePut(w http.ResponseWriter, r *http.Request, bucket
 		}
 		http.Error(w, "failed to store object", http.StatusInternalServerError)
 		return
+	}
+	// X-Replicated ヘッダーがある場合はループを防ぐため複製しない
+	if h.replicator != nil && r.Header.Get("X-Replicated") == "" {
+		h.replicator.ReplicatePut(&domain.Object{
+			Bucket:      bucket,
+			Key:         key,
+			ContentType: contentType,
+			Body:        body,
+		})
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -105,7 +124,30 @@ func (h *ObjectHandler) handleDelete(w http.ResponseWriter, r *http.Request, buc
 		http.Error(w, "failed to delete object", http.StatusInternalServerError)
 		return
 	}
+	if h.replicator != nil && r.Header.Get("X-Replicated") == "" {
+		h.replicator.ReplicateDelete(bucket, key)
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *ObjectHandler) handleList(w http.ResponseWriter, r *http.Request) {
+	list, err := h.usecase.List()
+	if err != nil {
+		http.Error(w, "failed to list objects", http.StatusInternalServerError)
+		return
+	}
+	if list == nil {
+		list = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+// authorized は Authorization: Bearer <key> ヘッダーを検証する。
+// Bearer スキームは HTTP 仕様に従い大文字小文字を問わない。
+func (h *ObjectHandler) authorized(r *http.Request) bool {
+	token, ok := strings.CutPrefix(strings.ToLower(r.Header.Get("Authorization")), "bearer ")
+	return ok && token == h.apiKey
 }
 
 // parsePath は /<bucket>/<key> 形式のパスを分割する。

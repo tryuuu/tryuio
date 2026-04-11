@@ -31,3 +31,7 @@ func (u *ObjectUsecase) Get(bucket, key string) (*domain.Object, error) {
 func (u *ObjectUsecase) Delete(bucket, key string) error {
 	return u.repo.Delete(bucket, key)
 }
+
+func (u *ObjectUsecase) List() ([]string, error) {
+	return u.repo.List()
+}

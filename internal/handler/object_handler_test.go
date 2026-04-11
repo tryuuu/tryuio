@@ -18,7 +18,7 @@ func newHandler(t *testing.T) http.Handler {
 	t.Helper()
 	storage := infrastructure.NewLocalStorage(t.TempDir())
 	uc := usecase.NewObjectUsecase(storage)
-	return handler.NewObjectHandler(uc, testAPIKey)
+	return handler.NewObjectHandler(uc, testAPIKey, nil)
 }
 
 func authPUT(t *testing.T, h http.Handler, path, body string) *httptest.ResponseRecorder {

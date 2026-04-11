@@ -106,6 +106,30 @@ func (s *LocalStorage) safeObjectPath(bucket, key string) (string, error) {
 	return full, nil
 }
 
+// List は dataDir 配下の全オブジェクトを "bucket/key" 形式で返す。
+// .meta.json ファイルは除外する。dataDir が存在しない場合は空リストを返す。
+func (s *LocalStorage) List() ([]string, error) {
+	if _, err := os.Stat(s.dataDir); os.IsNotExist(err) {
+		return []string{}, nil
+	}
+	var result []string
+	err := filepath.Walk(s.dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || strings.HasSuffix(path, ".meta.json") {
+			return nil
+		}
+		rel, err := filepath.Rel(s.dataDir, path)
+		if err != nil {
+			return err
+		}
+		result = append(result, rel)
+		return nil
+	})
+	return result, err
+}
+
 // validateSegment は bucket または key の各セグメントを検証する。
 func validateSegment(s string) error {
 	if s == "" {
