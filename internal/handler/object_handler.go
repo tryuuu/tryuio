@@ -45,6 +45,10 @@ func (h *ObjectHandler) handlePut(w http.ResponseWriter, r *http.Request, bucket
 	}
 	contentType := r.Header.Get("Content-Type")
 	if err := h.usecase.Put(bucket, key, contentType, body); err != nil {
+		if errors.Is(err, infrastructure.ErrInvalidPath) {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "failed to store object", http.StatusInternalServerError)
 		return
 	}
@@ -56,6 +60,10 @@ func (h *ObjectHandler) handleGet(w http.ResponseWriter, r *http.Request, bucket
 	if err != nil {
 		if errors.Is(err, infrastructure.ErrNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, infrastructure.ErrInvalidPath) {
+			http.Error(w, "invalid path", http.StatusBadRequest)
 			return
 		}
 		http.Error(w, "failed to get object", http.StatusInternalServerError)
@@ -72,6 +80,10 @@ func (h *ObjectHandler) handleDelete(w http.ResponseWriter, r *http.Request, buc
 	if err := h.usecase.Delete(bucket, key); err != nil {
 		if errors.Is(err, infrastructure.ErrNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, infrastructure.ErrInvalidPath) {
+			http.Error(w, "invalid path", http.StatusBadRequest)
 			return
 		}
 		http.Error(w, "failed to delete object", http.StatusInternalServerError)
