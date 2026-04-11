@@ -16,9 +16,14 @@ func main() {
 		dataDir = "/data"
 	}
 
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		log.Fatal("API_KEY is required")
+	}
+
 	storage := infrastructure.NewLocalStorage(dataDir)
 	uc := usecase.NewObjectUsecase(storage)
-	h := handler.NewObjectHandler(uc)
+	h := handler.NewObjectHandler(uc, apiKey)
 
 	log.Printf("starting server on :8080, data_dir=%s", dataDir)
 	if err := http.ListenAndServe(":8080", h); err != nil {

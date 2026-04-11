@@ -12,10 +12,11 @@ import (
 
 type ObjectHandler struct {
 	usecase *usecase.ObjectUsecase
+	apiKey  string
 }
 
-func NewObjectHandler(uc *usecase.ObjectUsecase) *ObjectHandler {
-	return &ObjectHandler{usecase: uc}
+func NewObjectHandler(uc *usecase.ObjectUsecase, apiKey string) *ObjectHandler {
+	return &ObjectHandler{usecase: uc, apiKey: apiKey}
 }
 
 func (h *ObjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -27,14 +28,29 @@ func (h *ObjectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodPut:
+		if !h.authorized(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 		h.handlePut(w, r, bucket, key)
 	case http.MethodGet:
 		h.handleGet(w, r, bucket, key)
 	case http.MethodDelete:
+		if !h.authorized(r) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 		h.handleDelete(w, r, bucket, key)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// authorized は Authorization: Bearer <key> ヘッダーを検証する。
+// Bearer スキームは HTTP 仕様に従い大文字小文字を問わない。
+func (h *ObjectHandler) authorized(r *http.Request) bool {
+	token, ok := strings.CutPrefix(strings.ToLower(r.Header.Get("Authorization")), "bearer ")
+	return ok && token == h.apiKey
 }
 
 func (h *ObjectHandler) handlePut(w http.ResponseWriter, r *http.Request, bucket, key string) {

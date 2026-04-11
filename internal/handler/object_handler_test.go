@@ -12,29 +12,45 @@ import (
 	"github.com/tryuuu/tryuio/internal/usecase"
 )
 
+const testAPIKey = "test-secret-key"
+
 func newHandler(t *testing.T) http.Handler {
 	t.Helper()
 	storage := infrastructure.NewLocalStorage(t.TempDir())
 	uc := usecase.NewObjectUsecase(storage)
-	return handler.NewObjectHandler(uc)
+	return handler.NewObjectHandler(uc, testAPIKey)
+}
+
+func authPUT(t *testing.T, h http.Handler, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "image/png")
+	req.Header.Set("Authorization", "Bearer "+testAPIKey)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func authDELETE(t *testing.T, h http.Handler, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodDelete, path, nil)
+	req.Header.Set("Authorization", "Bearer "+testAPIKey)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
 }
 
 func TestPUT_GET_DELETE(t *testing.T) {
 	h := newHandler(t)
 
 	// PUT
-	req := httptest.NewRequest(http.MethodPut, "/bucket/images/test.png",
-		strings.NewReader("fakepng"))
-	req.Header.Set("Content-Type", "image/png")
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
+	if rec := authPUT(t, h, "/bucket/images/test.png", "fakepng"); rec.Code != http.StatusOK {
 		t.Fatalf("PUT: got %d, want 200", rec.Code)
 	}
 
 	// GET
-	req = httptest.NewRequest(http.MethodGet, "/bucket/images/test.png", nil)
-	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/bucket/images/test.png", nil)
+	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET: got %d, want 200", rec.Code)
@@ -48,10 +64,7 @@ func TestPUT_GET_DELETE(t *testing.T) {
 	}
 
 	// DELETE
-	req = httptest.NewRequest(http.MethodDelete, "/bucket/images/test.png", nil)
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNoContent {
+	if rec := authDELETE(t, h, "/bucket/images/test.png"); rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE: got %d, want 204", rec.Code)
 	}
 
@@ -61,6 +74,71 @@ func TestPUT_GET_DELETE(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET after DELETE: got %d, want 404", rec.Code)
+	}
+}
+
+func TestPUT_NoAPIKey_Returns401(t *testing.T) {
+	h := newHandler(t)
+	req := httptest.NewRequest(http.MethodPut, "/bucket/test.png", strings.NewReader("data"))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("got %d, want 401", rec.Code)
+	}
+}
+
+func TestPUT_BearerCaseInsensitive_Returns200(t *testing.T) {
+	h := newHandler(t)
+	cases := []string{
+		"Bearer " + testAPIKey,
+		"bearer " + testAPIKey,
+		"BEARER " + testAPIKey,
+	}
+	for _, auth := range cases {
+		req := httptest.NewRequest(http.MethodPut, "/bucket/test.png", strings.NewReader("data"))
+		req.Header.Set("Authorization", auth)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("Authorization %q: got %d, want 200", auth, rec.Code)
+		}
+	}
+}
+
+func TestPUT_WrongAPIKey_Returns401(t *testing.T) {
+	h := newHandler(t)
+	req := httptest.NewRequest(http.MethodPut, "/bucket/test.png", strings.NewReader("data"))
+	req.Header.Set("Authorization", "Bearer wrongkey")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("got %d, want 401", rec.Code)
+	}
+}
+
+func TestDELETE_NoAPIKey_Returns401(t *testing.T) {
+	h := newHandler(t)
+	// まず PUT で作成
+	authPUT(t, h, "/bucket/test.png", "data")
+
+	req := httptest.NewRequest(http.MethodDelete, "/bucket/test.png", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("got %d, want 401", rec.Code)
+	}
+}
+
+func TestGET_NoAPIKey_Returns200(t *testing.T) {
+	h := newHandler(t)
+	authPUT(t, h, "/bucket/test.png", "data")
+
+	// GET は認証不要
+	req := httptest.NewRequest(http.MethodGet, "/bucket/test.png", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("got %d, want 200", rec.Code)
 	}
 }
 
@@ -76,10 +154,7 @@ func TestGET_NotFound(t *testing.T) {
 
 func TestDELETE_NotFound(t *testing.T) {
 	h := newHandler(t)
-	req := httptest.NewRequest(http.MethodDelete, "/bucket/notexist.png", nil)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
+	if rec := authDELETE(t, h, "/bucket/notexist.png"); rec.Code != http.StatusNotFound {
 		t.Errorf("got %d, want 404", rec.Code)
 	}
 }
@@ -107,6 +182,7 @@ func TestPathTraversal_Returns400(t *testing.T) {
 	for _, path := range cases {
 		req := httptest.NewRequest(http.MethodPut, path, strings.NewReader("evil"))
 		req.Header.Set("Content-Type", "text/plain")
+		req.Header.Set("Authorization", "Bearer "+testAPIKey)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		if rec.Code != http.StatusBadRequest {
