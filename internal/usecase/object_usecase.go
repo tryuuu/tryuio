@@ -18,7 +18,6 @@ func (u *ObjectUsecase) Put(bucket, key, contentType string, body []byte) error 
 		Bucket:      bucket,
 		Key:         key,
 		ContentType: contentType,
-		Size:        int64(len(body)),
 		Body:        body,
 	}
 	return u.repo.Put(obj)

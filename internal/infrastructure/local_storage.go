@@ -61,7 +61,6 @@ func (s *LocalStorage) Get(bucket, key string) (*domain.Object, error) {
 		Bucket: bucket,
 		Key:    key,
 		Body:   body,
-		Size:   int64(len(body)),
 	}
 	if metaBytes, err := os.ReadFile(path + ".meta.json"); err == nil {
 		var meta objectMeta
