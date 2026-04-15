@@ -1,0 +1,17 @@
+replicas: 3
+
+image:
+  repository: ghcr.io/tryuuu/tryuio
+  tag: latest
+
+port: 8080
+
+ingress:
+  host: tryu-taskmanager.com
+  path: /images/
+
+storage:
+  hostPath: /data/tryuio
+  mountPath: /data
+
+apiKey: ""
