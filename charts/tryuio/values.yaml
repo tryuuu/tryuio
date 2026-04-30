@@ -7,7 +7,7 @@ image:
 port: 8080
 
 ingress:
-  host: tryu-taskmanager.com
+  host: tryu.dev
   path: /images/
 
 storage:
