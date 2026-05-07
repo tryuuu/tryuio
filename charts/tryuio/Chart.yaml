@@ -2,5 +2,5 @@ apiVersion: v2
 name: tryuio
 description: A self-hosted HTTP-based object storage server
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "latest"

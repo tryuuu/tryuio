@@ -49,7 +49,7 @@ spec:
             - name: API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-secret
+                  name: {{ .Values.existingSecret | default (printf "%s-secret" .Release.Name) }}
                   key: api-key
           volumeMounts:
             - name: data
