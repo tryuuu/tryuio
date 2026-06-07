@@ -11,8 +11,9 @@ ingress:
   path: /images/
 
 storage:
-  hostPath: /data/tryuio
   mountPath: /data
+  storageClassName: csi-local
+  size: 10Gi
 
 apiKey: ""
 existingSecret: ""

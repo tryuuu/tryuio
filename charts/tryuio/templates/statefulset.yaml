@@ -66,8 +66,13 @@ spec:
               port: {{ .Values.port }}
             initialDelaySeconds: 10
             periodSeconds: 10
-      volumes:
-        - name: data
-          hostPath:
-            path: {{ .Values.storage.hostPath }}
-            type: DirectoryOrCreate
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ .Values.storage.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
