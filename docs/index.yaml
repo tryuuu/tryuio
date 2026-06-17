@@ -3,7 +3,17 @@ entries:
   tryuio:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-06-07T14:13:18.200374739Z"
+    created: "2026-06-17T01:46:20.092486121Z"
+    description: A self-hosted HTTP-based object storage server
+    digest: de3159b218745ce5f954971ecc9d32fd102181deffb297c496de5f948f5a6be2
+    name: tryuio
+    type: application
+    urls:
+    - https://tryuuu.github.io/tryuio/tryuio-0.2.1.tgz
+    version: 0.2.1
+  - apiVersion: v2
+    appVersion: latest
+    created: "2026-06-17T01:46:20.092281684Z"
     description: A self-hosted HTTP-based object storage server
     digest: b392933f29d090b35999b2746fc678244af983ed89eaa6a411044266624bcd89
     name: tryuio
@@ -13,7 +23,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: latest
-    created: "2026-06-07T14:13:18.200158867Z"
+    created: "2026-06-17T01:46:20.09204574Z"
     description: A self-hosted HTTP-based object storage server
     digest: a900a3b8ac351dc0b111900f05cbfedbbdfcfc67de6333f9d8f3eb72b72e1858
     name: tryuio
@@ -21,4 +31,4 @@ entries:
     urls:
     - https://tryuuu.github.io/tryuio/tryuio-0.1.0.tgz
     version: 0.1.0
-generated: "2026-06-07T14:13:18.199804238Z"
+generated: "2026-06-17T01:46:20.091717727Z"
