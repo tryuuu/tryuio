@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tryuuu/tryuio/internal/handler"
 	"github.com/tryuuu/tryuio/internal/infrastructure"
 	"github.com/tryuuu/tryuio/internal/replication"
@@ -27,6 +29,20 @@ func main() {
 	storage := infrastructure.NewLocalStorage(dataDir)
 	uc := usecase.NewObjectUsecase(storage)
 
+	prometheus.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "tryuio_objects_total",
+			Help: "Total number of objects stored locally",
+		},
+		func() float64 {
+			objects, err := storage.List()
+			if err != nil {
+				return 0
+			}
+			return float64(len(objects))
+		},
+	))
+
 	var replicator *replication.Replicator
 	if peersEnv := os.Getenv("PEERS"); peersEnv != "" {
 		peers := strings.Split(peersEnv, ",")
@@ -38,13 +54,17 @@ func main() {
 
 	h := handler.NewObjectHandler(uc, apiKey, replicator)
 
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/", h)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 	addr := ":" + port
 	log.Printf("starting server on %s, data_dir=%s", addr, dataDir)
-	if err := http.ListenAndServe(addr, h); err != nil {
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

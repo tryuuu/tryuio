@@ -17,3 +17,6 @@ storage:
 
 apiKey: ""
 existingSecret: ""
+
+serviceMonitor:
+  enabled: true

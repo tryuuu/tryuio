@@ -3,12 +3,15 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}-headless
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-headless
 spec:
   clusterIP: None
   selector:
     app: {{ .Release.Name }}
   ports:
-    - port: {{ .Values.port }}
+    - name: http
+      port: {{ .Values.port }}
       targetPort: {{ .Values.port }}
 ---
 apiVersion: v1
@@ -16,9 +19,12 @@ kind: Service
 metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
 spec:
   selector:
     app: {{ .Release.Name }}
   ports:
-    - port: {{ .Values.port }}
+    - name: http
+      port: {{ .Values.port }}
       targetPort: {{ .Values.port }}
